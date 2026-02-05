@@ -1,0 +1,60 @@
+:root{
+  --bg-1: #ffecd2;
+  --bg-2: #fcb69f;
+  --card: #ffffff;
+  --muted: #475569;
+  --primary-1: #06b6d4;
+  --primary-2: #3b82f6;
+  --accent: #06b6d4;
+  --danger: #ef4444;
+  --radius: 14px;
+  --max-width: 960px;
+}
+
+*{box-sizing:border-box}
+body{font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; margin:0; color:#0f172a; background: linear-gradient(135deg,var(--bg-1), var(--bg-2));}
+.container{max-width:var(--max-width); margin:36px auto; padding:20px}
+.card{background:var(--card); border-radius:var(--radius); box-shadow:0 10px 30px rgba(16,24,40,0.08); padding:22px; border-left:6px solid rgba(109,40,217,0.12)}
+h1,h2{margin:0 0 12px 0}
+.meta{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px}
+.btn{display:inline-block; padding:10px 14px; border-radius:10px; color:#fff; cursor:pointer; border:0}
+.btn.secondary{background:#fff; color:var(--primary-1); border:1px solid rgba(16,24,40,0.06)}
+.form-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.form-row{display:flex; gap:10px}
+label{font-size:13px; color:var(--muted); display:block; margin-bottom:6px}
+input[type=text], input[type=email], input[type=tel], input[type=date], input[type=time], input[type=number], select, textarea{width:100%; padding:12px 14px; border-radius:10px; font-size:14px; background:linear-gradient(180deg,#ffffff,#fffaf6); border:1px solid rgba(16,24,40,0.06); box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); transition:box-shadow .18s ease, border-color .14s ease, transform .08s ease}
+input::placeholder, textarea::placeholder{color:#94a3b8}
+select{background-image:linear-gradient(45deg, transparent 50%, rgba(0,0,0,0.06) 50%), linear-gradient(135deg, rgba(0,0,0,0.04), transparent 50%); background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px); background-size: 8px 8px, 6px 6px; background-repeat: no-repeat}
+input[type=text]:focus, input[type=email]:focus, input[type=tel]:focus, input[type=date]:focus, input[type=time]:focus, input[type=number]:focus, select:focus, textarea:focus{outline:none; border-color:var(--primary-1); box-shadow:0 10px 30px rgba(59,130,246,0.12); transform:translateY(-1px)}
+select[multiple]{height:120px}
+.small{font-size:13px; color:var(--muted)}
+.summary{margin-top:12px; padding:14px; background:linear-gradient(180deg,#fff,#fbf8ff); border-radius:10px; border:1px solid rgba(109,40,217,0.06)}
+.footer-note{font-size:13px; color:var(--muted); margin-top:12px}
+@media(max-width:700px){.form-grid{grid-template-columns:1fr} .meta{flex-direction:column; align-items:flex-start}}
+
+/* Header */
+.site-header{background: linear-gradient(90deg, rgba(255,255,255,0.6), rgba(255,255,255,0.3)); border-bottom: 1px solid rgba(255,255,255,0.06); backdrop-filter: blur(6px)}
+.site-header .container{display:flex; align-items:center; justify-content:space-between; gap:12px}
+.logo{display:flex; align-items:center; gap:12px; font-weight:700; color:var(--primary-1)}
+.logo svg{width:48px; height:48px}
+.site-nav a{color:var(--muted); text-decoration:none; margin-left:12px}
+
+/* Buttons */
+.btn{transition:transform .12s cubic-bezier(.2,.9,.2,1), box-shadow .12s ease}
+.btn:active{transform:translateY(1px)}
+.btn{box-shadow:0 6px 20px rgba(16,24,40,0.06)}
+.btn.primary{background:linear-gradient(90deg,var(--primary-1), var(--primary-2));}
+.btn.secondary{background:linear-gradient(90deg,#fff,#fff); color:var(--primary-1); border:1px solid rgba(16,24,40,0.06)}
+.btn:hover{box-shadow:0 18px 40px rgba(109,40,217,0.14); transform:translateY(-2px)}
+
+/* Modal */
+.modal-backdrop{position:fixed; inset:0; background:linear-gradient(180deg, rgba(16,24,40,0.65), rgba(16,24,40,0.5)); display:flex; align-items:center; justify-content:center; z-index:9999}
+.modal{background:linear-gradient(180deg,#ffffff,#fff7fb); padding:20px; border-radius:12px; width:90%; max-width:560px; box-shadow:0 20px 60px rgba(16,24,40,0.28); border:1px solid rgba(109,40,217,0.06)}
+.modal h3{margin-top:0; color:var(--primary-1)}
+.modal .modal-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px}
+
+/* Animations */
+@keyframes floaty{0%{transform:translateY(0)}50%{transform:translateY(-6px)}100%{transform:translateY(0)}}
+.logo svg{animation:floaty 6s ease-in-out infinite}
+
+
