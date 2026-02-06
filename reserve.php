@@ -1,11 +1,13 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
 include 'db.php';
+include 'qr_helper.php';
 session_start();
 
 // Configuration
 $people_per_table = 6;
 $total_tables = 50;
+$max_capacity = $people_per_table * $total_tables; // 300 people
 
 function bad($msg){
     echo json_encode(['success'=>false,'message'=>$msg]);
@@ -45,6 +47,14 @@ $d = DateTime::createFromFormat('Y-m-d', $date);
 $t = DateTime::createFromFormat('H:i', $time);
 if(!$d || $d->format('Y-m-d') !== $date) bad('Invalid date format');
 if(!$t || $t->format('H:i') !== $time) bad('Invalid time format');
+
+// Validate reservation time is within operating hours (10:00 - 21:45)
+$min_time = DateTime::createFromFormat('H:i', '10:00');
+$max_time = DateTime::createFromFormat('H:i', '21:45');
+if($t < $min_time || $t > $max_time){
+    http_response_code(400);
+    bad('Reservation time must be between 10:00 AM and 9:45 PM.');
+}
 
 // booking window: not in past and not more than 365 days ahead
 $today = new DateTime('today');
@@ -87,15 +97,25 @@ try {
     mysqli_begin_transaction($conn, MYSQLI_TRANS_START_READ_WRITE);
 
     // Re-check availability with FOR UPDATE to lock matching rows
-    $sql_check = "SELECT COALESCE(SUM(tables_needed),0) AS booked_tables FROM Reservation WHERE reservation_date=? AND reservation_time=? AND status='confirmed' FOR UPDATE";
+    // Check by total people (simpler and more accurate)
+    $sql_check = "SELECT COALESCE(SUM(num_people),0) AS booked_people FROM Reservation WHERE reservation_date=? AND reservation_time=? AND status='confirmed' FOR UPDATE";
     $st = mysqli_prepare($conn, $sql_check);
     mysqli_stmt_bind_param($st, 'ss', $date, $time);
     mysqli_stmt_execute($st);
     $res = mysqli_stmt_get_result($st);
     $row = mysqli_fetch_assoc($res);
-    $tables_booked = (int)($row['booked_tables'] ?? 0);
+    $booked_people = (int)($row['booked_people'] ?? 0);
 
+    // Check if adding this reservation would exceed max capacity
+    if($booked_people + $num_people > $max_capacity){
+        mysqli_rollback($conn);
+        bad('Not enough available seats at this time. Please try again in 15 minutes.');
+    }
+
+    // Also check table count for safety
+    $tables_booked = (int)ceil($booked_people / $people_per_table);
     $tables_remaining = $total_tables - $tables_booked;
+    $tables_needed = (int)ceil($num_people / $people_per_table);
     if($tables_needed > $tables_remaining){
         mysqli_rollback($conn);
         bad('Not enough tables available at this time.');
@@ -170,7 +190,24 @@ try {
     }
 
     mysqli_commit($conn);
-    echo json_encode(['success'=>true,'reservation_id'=>$reservation_id,'table_number'=>$table_numbers_str]);
+    
+    // Generate QR code for the reservation
+    $qr_data = "Reservation ID: {$reservation_id}\nName: {$name}\nDate: {$date}\nTime: {$time}\nPeople: {$num_people}\nTables: {$table_numbers_str}";
+    $qr_filename = generate_qr_code($qr_data, $reservation_id);
+    
+    $response = [
+        'success' => true,
+        'reservation_id' => $reservation_id,
+        'table_number' => $table_numbers_str
+    ];
+    
+    if ($qr_filename) {
+        $response['qr_code'] = get_qr_code_url($qr_filename);
+        $response['qr_filename'] = $qr_filename;
+        $response['qr_view_url'] = 'view_qr.php?id=' . $reservation_id;
+    }
+    
+    echo json_encode($response);
 
 } catch(Exception $e){
     mysqli_rollback($conn);

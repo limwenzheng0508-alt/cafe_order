@@ -9,6 +9,11 @@ if(empty($_SESSION['is_admin']) || $_SESSION['is_admin'] !== true){
     exit;
 }
 
+// Initialize admin CSRF token if not exists
+if(empty($_SESSION['admin_csrf'])){
+    $_SESSION['admin_csrf'] = bin2hex(random_bytes(32));
+}
+
 $people_per_table = 6;
 $total_tables = 50;
 
@@ -86,19 +91,38 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && !empty($_
     }
 }
 
-// Filters from GET
-$filters = [];
+// Filters from GET (using parameter binding for security)
 $where = [];
 $params = [];
-if(!empty($_GET['name'])){ $namef = mysqli_real_escape_string($conn, $_GET['name']); $where[] = "c.name LIKE '%$namef%'"; }
-if(!empty($_GET['date'])){ $datef = mysqli_real_escape_string($conn, $_GET['date']); $where[] = "r.reservation_date='$datef'"; }
-if(!empty($_GET['status'])){ $statusf = mysqli_real_escape_string($conn, $_GET['status']); $where[] = "r.status='$statusf'"; }
+$types = '';
+
+if(!empty($_GET['name'])){
+    $name_filter = '%' . $_GET['name'] . '%';
+    $where[] = "c.name LIKE ?";
+    $params[] = $name_filter;
+    $types .= 's';
+}
+if(!empty($_GET['date'])){
+    $where[] = "r.reservation_date = ?";
+    $params[] = $_GET['date'];
+    $types .= 's';
+}
+if(!empty($_GET['status'])){
+    $where[] = "r.status = ?";
+    $params[] = $_GET['status'];
+    $types .= 's';
+}
 
 $whereSql = '';
 if(!empty($where)) $whereSql = 'WHERE ' . implode(' AND ', $where);
 
 $q = "SELECT r.reservation_id, r.reservation_date, r.reservation_time, r.num_people, r.table_numbers, r.status, c.name, c.phone, c.email FROM Reservation r JOIN Customer c ON r.customer_id=c.customer_id $whereSql ORDER BY r.reservation_date DESC, r.reservation_time DESC LIMIT 500";
-$res = mysqli_query($conn, $q);
+$stmt = mysqli_prepare($conn, $q);
+if(!empty($params)){
+    mysqli_stmt_bind_param($stmt, $types, ...$params);
+}
+mysqli_stmt_execute($stmt);
+$res = mysqli_stmt_get_result($stmt);
 
 // CSV export
 if(isset($_GET['export']) && $_GET['export'] === 'csv'){
@@ -106,7 +130,7 @@ if(isset($_GET['export']) && $_GET['export'] === 'csv'){
     header('Content-Disposition: attachment; filename="reservations.csv"');
     $out = fopen('php://output', 'w');
     fputcsv($out, ['ID','Name','Phone','Email','Date','Time','People','Tables','Status']);
-    $rs = mysqli_query($conn, $q);
+    $rs = mysqli_stmt_get_result($stmt);
     while($row = mysqli_fetch_assoc($rs)){
         fputcsv($out, [$row['reservation_id'],$row['name'],$row['phone'],$row['email'],$row['reservation_date'],$row['reservation_time'],$row['num_people'],$row['table_numbers'],$row['status']]);
     }
@@ -137,7 +161,12 @@ if(isset($_GET['export']) && $_GET['export'] === 'csv'){
             </svg>
             <span>Admin Panel</span>
         </div>
-        <nav class="site-nav"><a href="index.php">Home</a><a href="admin_logout.php">Logout</a></nav>
+        <nav class="site-nav">
+            <a href="index.php">Home</a>
+            <a href="qr_codes_archive.php">QR Archive</a>
+            <a href="verify_qr.php">Verify QR</a>
+            <a href="admin_logout.php">Logout</a>
+        </nav>
     </div>
 </header>
 
@@ -154,8 +183,8 @@ if(isset($_GET['export']) && $_GET['export'] === 'csv'){
     </div>
 
     <form method="get" style="margin-bottom:12px;">
-        <input name="name" placeholder="Search name" value="<?php echo htmlspecialchars($_GET['name'] ?? ''); ?>">
-        <input name="date" type="date" value="<?php echo htmlspecialchars($_GET['date'] ?? ''); ?>">
+        <input name="name" placeholder="Search name" value="<?php echo htmlspecialchars($_GET['name'] ?? '', ENT_QUOTES); ?>">
+        <input name="date" type="date" value="<?php echo htmlspecialchars($_GET['date'] ?? '', ENT_QUOTES); ?>">
         <select name="status">
             <option value="">All</option>
             <option value="confirmed" <?php if(($_GET['status'] ?? '')==='confirmed') echo 'selected'; ?>>Confirmed</option>
@@ -175,15 +204,15 @@ if(isset($_GET['export']) && $_GET['export'] === 'csv'){
         <tbody>
         <?php while($row = mysqli_fetch_assoc($res)): ?>
             <tr>
-                <td><?php echo $row['reservation_id']; ?></td>
-                <td><?php echo htmlspecialchars($row['name']); ?></td>
-                <td><?php echo htmlspecialchars($row['phone']); ?></td>
-                <td><?php echo htmlspecialchars($row['email']); ?></td>
-                <td><?php echo htmlspecialchars($row['reservation_date']); ?></td>
-                <td><?php echo htmlspecialchars($row['reservation_time']); ?></td>
-                <td><?php echo htmlspecialchars($row['num_people']); ?></td>
-                <td><?php echo htmlspecialchars($row['table_numbers']); ?></td>
-                <td><?php echo htmlspecialchars($row['status']); ?></td>
+                <td><?php echo htmlspecialchars($row['reservation_id'], ENT_QUOTES); ?></td>
+                <td><?php echo htmlspecialchars($row['name'], ENT_QUOTES); ?></td>
+                <td><?php echo htmlspecialchars($row['phone'], ENT_QUOTES); ?></td>
+                <td><?php echo htmlspecialchars($row['email'], ENT_QUOTES); ?></td>
+                <td><?php echo htmlspecialchars($row['reservation_date'], ENT_QUOTES); ?></td>
+                <td><?php echo htmlspecialchars($row['reservation_time'], ENT_QUOTES); ?></td>
+                <td><?php echo htmlspecialchars($row['num_people'], ENT_QUOTES); ?></td>
+                <td><?php echo htmlspecialchars($row['table_numbers'], ENT_QUOTES); ?></td>
+                <td><?php echo htmlspecialchars($row['status'], ENT_QUOTES); ?></td>
                 <td>
                 <?php if($row['status'] === 'confirmed'): ?>
                     <form method="post" class="inline" style="margin:0">
